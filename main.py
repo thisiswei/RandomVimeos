@@ -24,10 +24,12 @@ def get_or_set_memcache(key, update=False):
     return results
 
 class MainHandler(webapp2.RequestHandler):
-    def get(self):
-        vs = get_or_set_memcache('videos')
-        v = random.sample(vs, 20)
-        self.render_front(v)
+    def initialize(self, *a, **kw):
+        webapp2.RequestHandler.initialize(self, *a, **kw)
+        if self.request.url.endswith('json'):
+            self.format = 'json'
+        else:
+            self.format = 'html'
 
     def render(self, template, **params):
         t = jinja_env.get_template(template)
@@ -35,6 +37,11 @@ class MainHandler(webapp2.RequestHandler):
 
     def render_front(self, v):
         self.render('video.html', videos=v)
+
+    def render_json(self, d):
+        js = json.dumps(d)
+        self.response.headers['Content-Type'] == 'application/json; charset=UTF-8'
+        self.response.write(js)
 
     def update_people(self):
         ps = list(Person.all())
@@ -45,7 +52,6 @@ class MainHandler(webapp2.RequestHandler):
             self.update_person(p)
         vs =  list(Video.all())
         memcache.set('videos', vs)
-
 
     def update_person(self, p, new_record=False):
         if new_record:
@@ -117,6 +123,14 @@ class BlogHandler(MainHandler):
         p.put()
         self.redirect('/blog')
 
+class VideoHandler(MainHandler): 
+    def get(self):
+        vs = get_or_set_memcache('videos')
+        v = random.sample(vs, 15)
+        if self.format == 'html':
+            self.render_front(v)
+        else:
+            self.render_json([x.as_dict() for x in v])
 
 class GitHandler(MainHandler):
     def get(self):
@@ -129,7 +143,7 @@ class GitHandler(MainHandler):
         self.redirect('/github')
 
 app = webapp2.WSGIApplication([
-    ('/', MainHandler),
+    ('/(?:\.json)?', VideoHandler),
     ('/blog', BlogHandler),
     ('/updatebitch', Updater),
     ('/github', GitHandler),

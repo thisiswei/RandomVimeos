@@ -28,6 +28,11 @@ class Video(db.Model):
         v = Video.all().filter('title =', title).get()
         return v
 
+    def as_dict(self):
+        d = db.to_dict(self)
+        d['created'] = self.created.strftime('%c')
+        return d
+
 class Person(db.Model):
     name = db.StringProperty()
     

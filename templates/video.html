@@ -2,6 +2,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
+ <ul id='thumbnails'>
  {% for v in videos %}
  <li><a class='various fancybox.iframe'
    href='http://player.vimeo.com/video/{{v.video_id}}?autoplay=1'>
@@ -9,4 +10,5 @@
      </a>
 </li>
  {% endfor %}
+ </ul>
 {% endblock %}

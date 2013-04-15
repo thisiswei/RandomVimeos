@@ -1,9 +1,15 @@
+*{margin: 0; padding: 0;}
 body{
   font-family:sans-serif;
-  text-align:center;
-  margin: 10px auto 50px;
 }
 
-.videos li { 
+#thumbnails li { 
   float: left;
 }
+
+ul#thumbnails {
+  width: 1000px;
+  height: 450px;
+  margin: 100px auto 20px;
+}
+
