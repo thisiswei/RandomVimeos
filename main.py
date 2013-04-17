@@ -5,7 +5,8 @@ import os
 from url import gravatar_base, SCORES, github_base
 from google.appengine.ext import db
 from google.appengine.api import urlfetch, memcache
-from model import Video, Person, PEOPLE, URL
+from model import Video, Person, PEOPLE, URL, IP_BASE
+from xml.dom import minidom
 import random
 
 
@@ -15,13 +16,27 @@ jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
 
 def get_or_set_memcache(key, update=False):
     results = memcache.get(key)
-    if not results or update:
-        val = (list(Video.all()) if key == 'videos'
-                                 else list(Person.all()) if key == 'video' 
-                                 else list(GitHub.all()))
+    if update or results is None:
+        val = (Video.all() if key == 'videos'
+                                 else Person.all() if key == 'people' 
+                                 else GitHub.all())
+        val = list(val)
         memcache.set(key, val)
         return val
     return results
+
+def get_geo(ip):
+    url = IP_BASE + ip
+    r = urlfetch.fetch(url)
+    print r
+    if r.status_code != 200:
+        return 
+    d = minidom.parseString(r.content)
+    g = d.getElementsByTagName('gml:coordinates')
+    if g:
+        val = g[0].childNodes[0].nodeValue
+        lng, lat = val.split(',')
+        return db.GeoPt(lat, lng)
 
 class MainHandler(webapp2.RequestHandler):
     def initialize(self, *a, **kw):
@@ -47,23 +62,25 @@ class MainHandler(webapp2.RequestHandler):
         ps = list(Person.all())
         if len(ps) == 0:
             [Person(key_name=p).put() for p in PEOPLE]
-            ps = PEOPLE
+            ps = Person.all()
         for p in ps:
-            self.update_person(p)
+            self.update_person(p.name)
         vs =  list(Video.all())
         memcache.set('videos', vs)
 
     def update_person(self, p, new_record=False):
-        if new_record:
-            Person(key_name=p).put()
         for i in range(1, 4):
             r = urlfetch.fetch(URL%(p, i))
             if r.status_code == 200:
+                print 'bitch'
+                if new_record and i == 1:
+                    Person(key_name=p).put()
                 js = json.loads(r.content)
                 for j in js:
                     t = j['title']
                     v = Video.by_title(t)
                     if v:
+                        'print exist'
                         return 
                     else:
                         v = Video(user_id=j['user_id'],
@@ -76,9 +93,10 @@ class MainHandler(webapp2.RequestHandler):
                                   liked_on=j['liked_on'])
                         v.put() 
 
-    def get_score(self, name):
+    def get_score(self, name, ip):
         url = github_base % name
         c = urlfetch.fetch(url)
+        coords = get_geo(ip)
         if c.status_code != 200:
             return
         record = GitHub.all().filter('username =', name).get()
@@ -87,7 +105,7 @@ class MainHandler(webapp2.RequestHandler):
             events = [j['type'] for j in js]
             scores = sum(SCORES.get(e, 0) for e in events)
             gravatar_id = js[0]['actor_attributes']['gravatar_id']
-            GitHub(username=name, grava_id = gravatar_id, score = scores).put()
+            GitHub(geo = coords, username=name, grava_id = gravatar_id, score = scores).put()
             get_or_set_memcache('github', True)
             return scores
         else:
@@ -109,6 +127,7 @@ class GitHub(db.Model):
     username = db.StringProperty(required=True)
     grava_id = db.StringProperty(required=True)
     score = db.IntegerProperty(required=True)
+    geo = db.GeoPtProperty()
 
 
 class BlogHandler(MainHandler):
@@ -127,6 +146,7 @@ class VideoHandler(MainHandler):
     def get(self):
         vs = get_or_set_memcache('videos')
         v = random.sample(vs, 15)
+        v = sorted(v, key = lambda x: x.likes)
         if self.format == 'html':
             self.render_front(v)
         else:
@@ -138,14 +158,15 @@ class GitHandler(MainHandler):
         self.render('github.html', gs=records, base_url=gravatar_base)
 
     def post(self):
+        ip = self.request.remote_addr
         name = self.request.get('username')
-        self.get_score(name)
+        self.get_score(name, ip)
         self.redirect('/github')
 
 app = webapp2.WSGIApplication([
     ('/(?:\.json)?', VideoHandler),
     ('/blog', BlogHandler),
-    ('/updatebitch', Updater),
+    ('/update', Updater),
     ('/github', GitHandler),
-    ('/([A-Za-z1-9]+)', AddPerson) 
+    ('/add/([A-Za-z1-9-]+)', AddPerson) 
 ], debug=True)

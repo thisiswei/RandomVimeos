@@ -3,6 +3,7 @@ from google.appengine.ext import db
 
 PEOPLE = 'thisiswei Kitchhock Mohetin user895703 amonofocus arvidniklasson brentdroog chamonix davidaltobeli houseofradon mikestaniforthfilmmaker'.split()
 URL = 'http://vimeo.com/api/v2/%s/likes.json?page=%s'
+IP_BASE = 'http://api.hostip.info/?ip='
 
 class Video(db.Model):
     user_id = db.IntegerProperty()

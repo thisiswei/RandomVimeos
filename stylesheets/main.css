@@ -1,10 +1,24 @@
 *{margin: 0; padding: 0;}
 body{
-  font-family:sans-serif;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  color: #333;
+  text-align: center;
+}
+a {
+  color: black;
+}
+a:hover {
+  color: grey;
 }
 
-#thumbnails li { 
+#thumbnails li{ 
   float: left;
+}
+.github li {
+  float: left;
+  margin-top: 40px;
+  margin-left: 40px;
 }
 
 ul#thumbnails {
@@ -12,4 +26,9 @@ ul#thumbnails {
   height: 450px;
   margin: 100px auto 20px;
 }
+
+.github_scores img{
+  border-radius: 80%;
+}
+  
 
